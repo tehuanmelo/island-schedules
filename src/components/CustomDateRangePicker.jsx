@@ -8,10 +8,19 @@ export default function CustomDateRangePicker({
     value,
     onChange,
     error,
+    defaultMonth,
     className = ""
 }) {
     const [isOpen, setIsOpen] = useState(false);
+    const [month, setMonth] = useState(defaultMonth || new Date());
     const containerRef = useRef(null);
+
+    // When defaultMonth changes (e.g. previous entry updated) and picker is closed, sync it
+    useEffect(() => {
+        if (!isOpen && defaultMonth) {
+            setMonth(defaultMonth);
+        }
+    }, [defaultMonth, isOpen]);
 
     // Close when clicking outside
     useEffect(() => {
@@ -61,6 +70,8 @@ export default function CustomDateRangePicker({
                         mode="range"
                         selected={value}
                         onSelect={onChange}
+                        month={month}
+                        onMonthChange={setMonth}
                         className="text-xs font-medium"
                         classNames={{
                             day: "rounded-md m-0.5 hover:bg-amber-100 focus:outline-none transition-colors",

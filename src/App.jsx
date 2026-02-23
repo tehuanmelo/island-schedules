@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { Plus, Trash2, Calendar, MapPin, User, ChevronDown, CheckCircle } from 'lucide-react';
 import { COACHES, BASES } from './constants';
 import CustomSelect from './components/CustomSelect';
@@ -37,6 +37,9 @@ function App() {
     control,
     name: "schedules"
   });
+
+  // Watch all schedules to derive defaultMonth for the next entry's picker
+  const watchedSchedules = useWatch({ control, name: 'schedules' });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -228,13 +231,18 @@ function App() {
                         }
                       }
                     }}
-                    render={({ field: { onChange, value } }) => (
-                      <CustomDateRangePicker
-                        value={value}
-                        onChange={onChange}
-                        error={errors?.schedules?.[index]?.dateRange}
-                      />
-                    )}
+                    render={({ field: { onChange, value } }) => {
+                      // defaultMonth = previous entry's out date (or undefined for first entry)
+                      const prevTo = index > 0 ? watchedSchedules?.[index - 1]?.dateRange?.to : undefined;
+                      return (
+                        <CustomDateRangePicker
+                          value={value}
+                          onChange={onChange}
+                          defaultMonth={prevTo || undefined}
+                          error={errors?.schedules?.[index]?.dateRange}
+                        />
+                      );
+                    }}
                   />
                   {errors?.schedules?.[index]?.dateRange && (
                     <p className="mt-1.5 text-sm text-red-500">{errors.schedules[index].dateRange.message}</p>
