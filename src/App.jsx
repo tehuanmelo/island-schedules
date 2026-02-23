@@ -3,6 +3,7 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { Plus, Trash2, Calendar, MapPin, User, ChevronDown, CheckCircle } from 'lucide-react';
 import { COACHES, BASES } from './constants';
 import CustomSelect from './components/CustomSelect';
+import CustomDateRangePicker from './components/CustomDateRangePicker';
 import './index.css';
 
 // Using a placeholder for the logo until provided or imported if it's a local file
@@ -28,7 +29,7 @@ function App() {
     defaultValues: {
       coach: '',
       base: '',
-      schedules: [{ dayIn: '', dayOut: '' }]
+      schedules: [{ dateRange: undefined }]
     }
   });
 
@@ -48,13 +49,15 @@ function App() {
     // We map over each schedule and create a flattened row object
     const payload = data.schedules.map(schedule => {
       const selectedCoach = COACHES.find(c => c.ps === data.coach);
+      // use simple date string format to avoid timezone offset issues in Google Sheets (Apps Script new Date(string))
+      const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
       return {
         timestamp: new Date().toISOString(),
         userId: data.coach,
         userName: selectedCoach?.name || '',
         location: data.base,
-        scheduleIn: schedule.dayIn,
-        scheduleOut: schedule.dayOut
+        scheduleIn: fmt(schedule.dateRange?.from),
+        scheduleOut: schedule.dateRange?.to ? fmt(schedule.dateRange.to) : fmt(schedule.dateRange?.from)
       };
     });
 
@@ -185,91 +188,50 @@ function App() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label-text">Day In</label>
-                    <input
-                      type="date"
-                      {...register(`schedules.${index}.dayIn`, {
-                        required: "Day In is required",
-                        validate: {
-                          noOverlap: (v, formValues) => {
-                            if (!v || !formValues.schedules[index].dayOut) return true;
-                            const currentStart = new Date(v);
-                            const currentEnd = new Date(formValues.schedules[index].dayOut);
-                            if (currentEnd <= currentStart) return true; // Let dayOut validator handle it
-
-                            for (let i = 0; i < formValues.schedules.length; i++) {
-                              if (i === index) continue;
-                              const other = formValues.schedules[i];
-                              if (other.dayIn && other.dayOut) {
-                                const otherStart = new Date(other.dayIn);
-                                const otherEnd = new Date(other.dayOut);
-                                if (otherEnd > otherStart) {
-                                  // Overlap condition: Start A < End B AND Start B < End A
-                                  // BUT the user says "cant overlap each other". To be safe, any shared date is an overlap
-                                  if (currentStart <= otherEnd && otherStart <= currentEnd) {
-                                    return "Dates overlap with entry " + (i + 1);
-                                  }
-                                }
+                <div>
+                  <label className="label-text">Select Date Range</label>
+                  <Controller
+                    control={control}
+                    name={`schedules.${index}.dateRange`}
+                    rules={{
+                      required: "Please select a date range",
+                      validate: {
+                        completeRange: (v) => {
+                          if (!v?.from || !v?.to) return "Please choose both start and end dates";
+                          return true;
+                        },
+                        noOverlap: (v, formValues) => {
+                          if (!v?.from || !v?.to) return true;
+                          // set start to start of day, end to end of day to be safe with full day logic
+                          const currentStart = new Date(v.from.getFullYear(), v.from.getMonth(), v.from.getDate(), 0, 0, 0);
+                          const currentEnd = new Date(v.to.getFullYear(), v.to.getMonth(), v.to.getDate(), 23, 59, 59);
+                          for (let i = 0; i < formValues.schedules.length; i++) {
+                            if (i === index) continue;
+                            const other = formValues.schedules[i].dateRange;
+                            if (other?.from && other?.to) {
+                              const otherStart = new Date(other.from.getFullYear(), other.from.getMonth(), other.from.getDate(), 0, 0, 0);
+                              const otherEnd = new Date(other.to.getFullYear(), other.to.getMonth(), other.to.getDate(), 23, 59, 59);
+                              // Overlap occurs if start A <= end B AND start B <= end A
+                              if (currentStart <= otherEnd && otherStart <= currentEnd) {
+                                return "Dates overlap with entry " + (i + 1);
                               }
                             }
-                            return true;
                           }
+                          return true;
                         }
-                      })}
-                      className={`input-field ${errors?.schedules?.[index]?.dayIn ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-                    />
-                    {errors?.schedules?.[index]?.dayIn && (
-                      <p className="mt-1.5 text-sm text-red-500">{errors.schedules[index].dayIn.message}</p>
+                      }
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <CustomDateRangePicker
+                        value={value}
+                        onChange={onChange}
+                        error={errors?.schedules?.[index]?.dateRange}
+                      />
                     )}
-                  </div>
-
-                  <div>
-                    <label className="label-text">Day Out</label>
-                    <input
-                      type="date"
-                      {...register(`schedules.${index}.dayOut`, {
-                        required: "Day Out is required",
-                        validate: {
-                          afterDayIn: (v, formValues) => {
-                            const dayIn = formValues.schedules[index].dayIn;
-                            if (v && dayIn) {
-                              if (new Date(v) <= new Date(dayIn)) {
-                                return "Day Out must be after Day In";
-                              }
-                            }
-                            return true;
-                          },
-                          noOverlap: (v, formValues) => {
-                            if (!v || !formValues.schedules[index].dayIn) return true;
-                            const currentStart = new Date(formValues.schedules[index].dayIn);
-                            const currentEnd = new Date(v);
-                            if (currentEnd <= currentStart) return true; // handled by afterDayIn
-
-                            for (let i = 0; i < formValues.schedules.length; i++) {
-                              if (i === index) continue;
-                              const other = formValues.schedules[i];
-                              if (other.dayIn && other.dayOut) {
-                                const otherStart = new Date(other.dayIn);
-                                const otherEnd = new Date(other.dayOut);
-                                if (otherEnd > otherStart) {
-                                  if (currentStart <= otherEnd && otherStart <= currentEnd) {
-                                    return "Dates overlap with entry " + (i + 1);
-                                  }
-                                }
-                              }
-                            }
-                            return true;
-                          }
-                        }
-                      })}
-                      className={`input-field ${errors?.schedules?.[index]?.dayOut ? 'border-red-500 ring-1 ring-red-500' : ''}`}
-                    />
-                    {errors?.schedules?.[index]?.dayOut && (
-                      <p className="mt-1.5 text-sm text-red-500">{errors.schedules[index].dayOut.message}</p>
-                    )}
-                  </div>
+                  />
+                  {errors?.schedules?.[index]?.dateRange && (
+                    <p className="mt-1.5 text-sm text-red-500">{errors.schedules[index].dateRange.message}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -277,7 +239,7 @@ function App() {
 
           <button
             type="button"
-            onClick={() => append({ dayIn: '', dayOut: '' })}
+            onClick={() => append({ dateRange: undefined })}
             className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all flex items-center justify-center gap-2"
           >
             <Plus size={20} />
