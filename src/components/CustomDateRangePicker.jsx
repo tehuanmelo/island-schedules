@@ -61,9 +61,9 @@ export default function CustomDateRangePicker({
                         mode="range"
                         selected={value}
                         onSelect={onChange}
-                        className="text-sm font-medium"
+                        className="text-xs font-medium"
                         classNames={{
-                            day: "rounded-md p-1 m-0.5 hover:bg-amber-100 focus:outline-none transition-colors",
+                            day: "rounded-md m-0.5 hover:bg-amber-100 focus:outline-none transition-colors",
                             selected: "bg-amber-500 text-white font-bold hover:bg-amber-600 rounded-md",
                             today: "border border-amber-500 font-bold",
                             range_middle: "bg-amber-100 text-amber-900 rounded-none",
