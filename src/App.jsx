@@ -184,6 +184,17 @@ function App() {
                   <h3 className="font-semibold text-gray-800 flex items-center gap-2">
                     <Calendar size={18} className="text-amber-500" />
                     Entry {index + 1}
+                    {(() => {
+                      const dr = watchedSchedules?.[index]?.dateRange;
+                      if (!dr?.from || !dr?.to) return null;
+                      const diffMs = dr.to.getTime() - dr.from.getTime();
+                      const days = Math.round(diffMs / 86400000) + 1;
+                      return (
+                        <span className="ml-1 text-xs font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                          {days} {days === 1 ? 'day' : 'days'}
+                        </span>
+                      );
+                    })()}
                   </h3>
 
                   {fields.length > 1 && (
