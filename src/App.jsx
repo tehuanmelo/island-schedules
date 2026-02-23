@@ -25,7 +25,7 @@ const formatDisplayDate = (dateString) => {
 };
 
 function App() {
-  const { register, control, handleSubmit, formState: { errors } } = useForm({
+  const { register, control, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: {
       coach: '',
       base: '',
@@ -81,6 +81,13 @@ function App() {
       setIsSubmitting(false);
       setSubmitSuccess(true);
       setSubmittedData(payload);
+
+      // Clear all form inputs
+      reset({
+        coach: '',
+        base: '',
+        schedules: [{ dateRange: undefined }]
+      });
 
       // Reset success message after 3 seconds
       setTimeout(() => {
